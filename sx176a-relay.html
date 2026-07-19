@@ -2,161 +2,66 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-
-<title>SX176A Relay V4</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SX176A Relay</title>
 
 <style>
-
-body{
-    font-family:Arial,sans-serif;
+body {
+    font-family: sans-serif;
     padding:20px;
-    background:#fafafa;
 }
 
-h1{
-    font-size:28px;
-}
-
-button{
-
-    width:100%;
-    height:65px;
-    margin:8px 0;
-
-    font-size:22px;
-    border-radius:12px;
-    border:0;
-
-    background:#222;
-    color:white;
-}
-
-button.mode{
-
-    width:31%;
-    height:60px;
+button {
     font-size:18px;
-
+    padding:10px 20px;
+    margin:5px;
 }
 
-#status{
-
-    padding:15px;
-    background:white;
-    border-radius:10px;
-    margin:15px 0;
-
+input {
+    width:90%;
 }
 
-
-input[type=range]{
-
-    width:100%;
-    height:40px;
-
-}
-
-
-#log{
-
+#log {
+    margin-top:20px;
+    height:200px;
+    overflow:auto;
     background:#111;
     color:#0f0;
-
-    height:220px;
-    overflow:auto;
-
     padding:10px;
-
-    border-radius:10px;
-
     font-family:monospace;
 }
-
-
-.modeBox{
-
-    display:flex;
-    gap:5px;
-    flex-wrap:wrap;
-
-}
-
-
 </style>
 
 </head>
 
-
 <body>
 
-
-<h1>SX176A BLE Relay V4</h1>
-
-
-<button onclick="connectBLE()">
-连接设备
-</button>
+<h2>SX176A BLE Relay</h2>
 
 
-<div id="status">
-未连接
-</div>
+<button onclick="connectBLE()">连接设备</button>
+
+<p id="status">未连接</p>
 
 
-
-<h2>
-模式
-</h2>
+<hr>
 
 
-<div class="modeBox">
+<h3>手动控制</h3>
 
-<button class="mode" onclick="setMode(1)">
-模式1
-</button>
-
-<button class="mode" onclick="setMode(2)">
-模式2
-</button>
-
-<button class="mode" onclick="setMode(3)">
-模式3
-</button>
-
-<button class="mode" onclick="setMode(4)">
-模式4
-</button>
-
-<button class="mode" onclick="setMode(5)">
-模式5
-</button>
-
-<button class="mode" onclick="setMode(6)">
-模式6
-</button>
-
-</div>
-
-
-
-<h2>
-强度：
-<span id="value">
-0
-</span>%
-</h2>
-
-
-<input
+<input 
 type="range"
 min="0"
 max="100"
 value="0"
-id="slider"
-oninput="changeIntensity(this.value)"
+id="speed"
+oninput="manualSpeed(this.value)"
 >
 
+<p>
+当前强度：
+<span id="value">0</span>%
+</p>
 
 
 <button onclick="stopDevice()">
@@ -164,72 +69,79 @@ oninput="changeIntensity(this.value)"
 </button>
 
 
+<hr>
 
-<h2>
-日志
-</h2>
+
+<h3>AI Relay</h3>
+
+<label>
+Railway 地址：
+</label>
+
+<input 
+id="railway"
+placeholder="https://xxx.up.railway.app"
+/>
+
+<br>
+
+<label>
+Secret：
+</label>
+
+<input 
+id="secret"
+/>
+
+
+<br>
+
+<button onclick="startPolling()">
+启动AI控制
+</button>
+
 
 <div id="log"></div>
-
-<h2>AI Relay</h2>
-
-<input id="railway" type="text" placeholder="Railway URL">
-
-<input id="secret" type="password" placeholder="Secret">
-
-<button onclick="startPolling()">Start AI Relay</button>
 
 
 <script>
 
-let device;
-let characteristic;
 
-let currentMode = 1;
-let currentIntensity = 0;
+let device=null;
+let writeChar=null;
 
-let keepAliveTimer = null;
+let keepAlive=null;
 
-
-// =======================
-// UUID
-// =======================
-
-const SERVICE_UUID = "FFE0";
-const WRITE_UUID = "FFE1";
+let polling=null;
 
 
-// =======================
-// 日志
-// =======================
+// ===== BLE =====
+
+
+const SERVICE =
+"0000ffe0-0000-1000-8000-00805f9b34fb";
+
+
+const WRITE =
+"0000ffe1-0000-1000-8000-00805f9b34fb";
+
+
 
 function log(msg){
 
     let box=document.getElementById("log");
 
-    box.innerHTML +=
-        new Date().toLocaleTimeString()
-        +"  "
-        +msg
-        +"<br>";
+    box.innerHTML += msg+"<br>";
 
     box.scrollTop=box.scrollHeight;
-
 }
 
 
-// =======================
-// 连接 BLE
-// =======================
 
 async function connectBLE(){
 
-try{
-
-    log("开始扫描...");
-
-
-    device = await navigator.bluetooth.requestDevice({
+    device =
+    await navigator.bluetooth.requestDevice({
 
         filters:[
             {
@@ -238,468 +150,306 @@ try{
         ],
 
         optionalServices:[
-            SERVICE_UUID
+            SERVICE
         ]
-
     });
 
 
-
     let server =
-        await device.gatt.connect();
+    await device.gatt.connect();
 
 
     let service =
-        await server.getPrimaryService(
-            SERVICE_UUID
-        );
-
-
-    characteristic =
-        await service.getCharacteristic(
-            WRITE_UUID
-        );
-
-
-    document.getElementById("status").innerHTML =
-        "已连接: "
-        +device.name;
-
-
-    log(
-        "BLE连接成功"
+    await server.getPrimaryService(
+        SERVICE
     );
 
 
-}
-catch(e){
-
-    log(
-        "连接失败: "
-        +e
+    writeChar =
+    await service.getCharacteristic(
+        WRITE
     );
 
+
+    document.getElementById("status")
+    .innerText=
+    "已连接："+device.name;
+
+
+    log("BLE连接成功");
+
 }
 
 
-}
 
 
-
-// =======================
-// HEX发送
-// =======================
-
-async function sendHex(hex){
+// ===== BLE COMMAND =====
 
 
-    if(!characteristic){
+async function sendCommand(bytes){
 
-        log(
-            "未连接设备"
-        );
+    if(!writeChar){
+
+        log("未连接BLE");
 
         return;
+    }
+
+
+    await writeChar
+    .writeValueWithoutResponse(
+        new Uint8Array(bytes)
+    );
+
+}
+
+
+
+
+function makeSpeedCommand(percent){
+
+    let value =
+    Math.round(
+        percent/100*255
+    );
+
+
+    return [
+
+        0x55,
+        0x04,
+        0x00,
+        0x00,
+        0x01,
+        value,
+        0xAA
+
+    ];
+
+}
+
+
+
+
+function manualSpeed(v){
+
+    document
+    .getElementById("value")
+    .innerText=v;
+
+
+    startKeepAlive(v);
+
+}
+
+
+
+function startKeepAlive(v){
+
+
+    if(keepAlive){
+
+        clearInterval(
+            keepAlive
+        );
 
     }
 
 
-    let bytes =
-        hex.match(/.{1,2}/g)
-        .map(
-            x=>parseInt(x,16)
-        );
-
-
-    await characteristic.writeValueWithoutResponse(
-        new Uint8Array(bytes)
-    );
-
-
-    log(
-        "发送: "
-        +hex
-    );
-
-
-}
-
-
-
-// =======================
-// 模式
-// =======================
-
-
-function setMode(mode){
-
-
-    currentMode = mode;
-
-
-    let hex =
-        "550300000"
-        + mode
-        + "0200";
-
-
-    sendHex(hex);
-
-
-    log(
-        "模式 "
-        +mode
-    );
-
-
-}
-
-
-
-
-// =======================
-// 强度
-// =======================
-
-
-// 百分比转换设备值
-function percentToHex(value){
-
-
-    let num =
-        Math.round(
-            Number(value) / 100 * 255
-        );
-
-
-    return num
-        .toString(16)
-        .padStart(2,"0")
-        .toUpperCase();
-
-
-}
-
-
-
-function changeIntensity(value){
-
-
-    currentIntensity =
-        Number(value);
-
-
-    document.getElementById("value")
-        .innerHTML=value;
-
-
-
-    sendIntensity(
-        currentIntensity
-    );
-
-
-}
-
-
-
-
-function sendIntensity(value){
-
-
-    let hexValue =
-        percentToHex(value);
-
-
-
     let cmd =
-        "5504000001"
-        +
-        hexValue
-        +
-        "AA";
+    makeSpeedCommand(v);
 
 
-
-    sendHex(cmd);
-
+    sendCommand(cmd);
 
 
-    startKeepAlive();
+    keepAlive =
+    setInterval(()=>{
 
-}
+        sendCommand(cmd);
 
-
-
-// =======================
-// 保活
-// =======================
+    },1500);
 
 
-function startKeepAlive(){
-
-
-    if(keepAliveTimer)
-        clearInterval(
-            keepAliveTimer
-        );
-
-
-
-    keepAliveTimer =
-        setInterval(()=>{
-
-
-            if(currentIntensity>0){
-
-                sendIntensityOnce(
-                    currentIntensity
-                );
-
-            }
-
-
-        },1500);
-
-
-
-}
-
-
-
-function sendIntensityOnce(value){
-
-
-    let hexValue =
-        percentToHex(value);
-
-
-    sendHex(
-        "5504000001"
-        +
-        hexValue
-        +
-        "AA"
+    log(
+    "强度 "+v+"% keepalive启动"
     );
 
-
 }
 
 
-
-// =======================
-// 停止
-// =======================
 
 
 function stopDevice(){
 
 
-    if(keepAliveTimer){
+    if(keepAlive){
 
         clearInterval(
-            keepAliveTimer
+            keepAlive
         );
 
-        keepAliveTimer=null;
-
+        keepAlive=null;
     }
 
 
-    currentIntensity=0;
+    sendCommand([
+
+        0x55,
+        0x04,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0xAA
+
+    ]);
 
 
-    document.getElementById("slider")
-        .value=0;
-
-
-    document.getElementById("value")
-        .innerHTML="0";
-
-
-
-    sendHex(
-        "550400000000AA"
-    );
-
-
-    log(
-        "停止"
-    );
-
+    log("停止");
 
 }
 
 
 
-// =======================
-// MCP轮询
-// =======================
+// ===== MCP POLLING =====
 
 
-let pollingTimer = null;
+
+async function startPolling(){
 
 
-function startPolling(){
+    if(polling){
 
-    if(pollingTimer)
-        clearInterval(pollingTimer);
+        return;
+    }
 
-    pollCommand();
 
-    pollingTimer = setInterval(
+    polling =
+    setInterval(
         pollCommand,
         300
     );
 
-    log("AI Relay polling started");
+
+    log("AI轮询启动");
 
 }
+
+
 
 
 async function pollCommand(){
 
 
-try{
-
-
     let url =
-        document.getElementById("railway").value;
+    document
+    .getElementById("railway")
+    .value;
+
 
     let secret =
-        document.getElementById("secret").value;
+    document
+    .getElementById("secret")
+    .value;
 
-    let cleanUrl =
-        url.trim().replace(/\/$/, "");
 
-    if(!cleanUrl)
+    if(!url){
         return;
+    }
 
 
-    let res =
-        await fetch(
+    try{
 
-            cleanUrl
-            +
+
+       let res =
+await fetch(
+    url+
+    "/toy-next?secret="
+    +
+    encodeURIComponent(secret),
+    {
+        cache:"no-store"
+    }
+);
+
+            url+
             "/toy-next?secret="
             +
-            encodeURIComponent(secret.trim())
-            +
-            "&t="
-            +
-            Date.now(),
-
-            {
-                cache: "no-store"
-            }
+            encodeURIComponent(secret)
 
         );
 
 
-
-    if(!res.ok){
-
-        log("轮询HTTP错误: " + res.status);
-
-        return;
-
-    }
-
-    let text = await res.text();
+        let data =
+        await res.json();
 
 
+        if(
+            data.command
+        ){
 
-    if(!text)
-        return;
-
-
-
-    let cmd =
-        JSON.parse(text);
-
+            log(
+            JSON.stringify(data.command)
+            );
 
 
-    if(!cmd.command)
-        return;
-
-
-
-    handleCommand(
-        cmd.command
-    );
-
-
-}
-catch(e){
-
-
-    log(
-        "轮询错误:"
-        +
-        e
-    );
-
-
-}
-
-
-
-}
-
-
-
-
-// Polling starts only after the AI Relay button is pressed.
-
-
-
-// =======================
-// AI命令处理
-// =======================
-
-
-function handleCommand(cmd){
-
-
-    log(
-        "收到AI:"
-        + JSON.stringify(cmd)
-    );
-
-
-
-    if(cmd.action==="set"){
-
-
-        if(cmd.mode!==undefined){
-
-            setMode(
-                cmd.mode
+            handleCommand(
+                data.command
             );
 
         }
 
 
+    }catch(e){
 
-        if(cmd.intensity!==undefined){
-
-
-            setTimeout(()=>{
-
-
-                changeIntensity(
-                    cmd.intensity
-                );
-
-
-            },300);
-
-
-        }
-
+        log(
+        "轮询错误:"
+        +e
+        );
 
     }
 
+
+}
+
+
+
+
+function handleCommand(cmd){
+
+
+    log("执行命令："+JSON.stringify(cmd));
+
+
+    if(cmd.action==="set"){
+
+
+        // 先设置模式
+        let modeCmd = [
+
+            0x55,
+            0x03,
+            0x00,
+            0x00,
+            cmd.mode,
+            0x01,
+            0x00
+
+        ];
+
+
+        sendCommand(modeCmd);
+
+
+
+        // 再设置强度
+        startKeepAlive(
+            cmd.intensity
+        );
+
+
+    }
 
 
 
@@ -712,21 +462,6 @@ function handleCommand(cmd){
     }
 
 
-
-
-    //兼容旧格式
-
-    if(cmd.action==="intensity"){
-
-
-        changeIntensity(
-            cmd.value
-        );
-
-
-    }
-
-
 }
 
 
@@ -734,5 +469,4 @@ function handleCommand(cmd){
 </script>
 
 </body>
-
 </html>
