@@ -39,20 +39,50 @@ app.get('/toy-next', (req, res) => {
   const { secret } = req.query;
 
   if (secret !== toyQueue.secret) {
+    console.log("❌ /toy-next 密钥错误");
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+
   const age = Date.now() - toyQueue.timestamp;
+
+
+  console.log(
+    `🔄 /toy-next 请求 | 当前命令: ${JSON.stringify(toyQueue.command)} | age=${age}ms`
+  );
+
+
   if (age > 5000) {
+
+    console.log(
+      "⌛ 命令已过期"
+    );
+
     return res.json({ command: null });
+
   }
 
+
   const cmd = toyQueue.command;
+
+
+  if (!cmd) {
+
+    return res.json({ command: null });
+
+  }
+
+
   toyQueue.command = null;
+
+
   console.log(
     `📤 中继取走: ${JSON.stringify(cmd)}`
-   );
+  );
+
+
   res.json({ command: cmd });
+
 });
 
 // ===== 状态查询 =====
