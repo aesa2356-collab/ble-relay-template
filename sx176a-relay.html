@@ -3,127 +3,301 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+
 <title>SX176A Relay</title>
 
 <style>
+
 body {
-    font-family: sans-serif;
+    font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:#f5f5f5;
     padding:20px;
+    text-align:center;
 }
+
+h2 {
+    margin-bottom:20px;
+}
+
 
 button {
-    font-size:18px;
-    padding:10px 20px;
-    margin:5px;
+
+    width:45%;
+    height:60px;
+
+    margin:8px;
+
+    border:none;
+    border-radius:14px;
+
+    background:#222;
+    color:white;
+
+    font-size:20px;
+
 }
 
-input {
-    width:90%;
+
+button:active {
+
+    transform:scale(0.96);
+
 }
+
+
+.stop {
+
+    width:94%;
+    background:#c62828;
+
+}
+
+
+.mode.active {
+
+    background:#1976d2;
+
+}
+
+
+
+input[type=range] {
+
+    width:95%;
+    height:40px;
+
+}
+
+
+.card {
+
+    background:white;
+
+    border-radius:18px;
+
+    padding:18px;
+
+    margin-bottom:20px;
+
+}
+
 
 #log {
-    margin-top:20px;
-    height:200px;
-    overflow:auto;
+
+    text-align:left;
+
     background:#111;
+
     color:#0f0;
+
+    height:160px;
+
+    overflow:auto;
+
     padding:10px;
+
+    border-radius:10px;
+
     font-family:monospace;
+
+    font-size:13px;
+
 }
+
+
+.small {
+
+    color:#666;
+
+    font-size:14px;
+
+}
+
 </style>
 
 </head>
 
+
 <body>
 
-<h2>SX176A BLE Relay</h2>
+
+<h2>SX176A-02 控制</h2>
 
 
-<button onclick="connectBLE()">连接设备</button>
+<div class="card">
 
-<p id="status">未连接</p>
+<button onclick="connectBLE()">
+连接设备
+</button>
 
 
-<hr>
+<p id="status">
+未连接
+</p>
 
 
-<h3>手动控制</h3>
+</div>
 
-<input 
+
+
+
+<div class="card">
+
+
+<h3>
+强度：
+<span id="strengthText">0</span>%
+</h3>
+
+
+<input
 type="range"
 min="0"
 max="100"
 value="0"
-id="speed"
-oninput="manualSpeed(this.value)"
+id="strength"
+oninput="changeStrength(this.value)"
 >
 
-<p>
-当前强度：
-<span id="value">0</span>%
+
+<p class="small">
+低于10%自动调整为最低有效档
 </p>
 
 
-<button onclick="stopDevice()">
+</div>
+
+
+
+
+
+<div class="card">
+
+
+<h3>
+模式
+</h3>
+
+
+<button class="mode" onclick="setMode(1,this)">
+模式1
+</button>
+
+<button class="mode" onclick="setMode(2,this)">
+模式2
+</button>
+
+
+<button class="mode" onclick="setMode(3,this)">
+模式3
+</button>
+
+
+<button class="mode" onclick="setMode(4,this)">
+模式4
+</button>
+
+
+<button class="mode" onclick="setMode(5,this)">
+模式5
+</button>
+
+
+<button class="mode" onclick="setMode(6,this)">
+模式6
+</button>
+
+
+</div>
+
+
+
+
+<div class="card">
+
+
+<button class="stop" onclick="stopDevice()">
 停止
 </button>
 
 
-<hr>
+</div>
 
 
-<h3>AI Relay</h3>
 
-<label>
-Railway 地址：
-</label>
 
-<input 
+
+<div class="card">
+
+
+<h3>
+AI Relay
+</h3>
+
+
+<input
 id="railway"
-placeholder="https://xxx.up.railway.app"
-/>
+placeholder="Railway地址"
+style="width:90%;height:35px;"
+>
 
-<br>
 
-<label>
-Secret：
-</label>
+<br><br>
 
-<input 
+
+<input
 id="secret"
-/>
+placeholder="Secret"
+style="width:90%;height:35px;"
+>
 
 
 <br>
+
 
 <button onclick="startPolling()">
-启动AI控制
+启动AI
 </button>
+
+
+</div>
+
+
 
 
 <div id="log"></div>
 
 
+
+
+
 <script>
 
 
-let device=null;
-let writeChar=null;
+let device;
 
-let keepAlive=null;
-
-let polling=null;
+let writeChar;
 
 
-// ===== BLE =====
-
-
-const SERVICE =
+const SERVICE_UUID =
 "0000ffe0-0000-1000-8000-00805f9b34fb";
 
 
-const WRITE =
+const WRITE_UUID =
 "0000ffe1-0000-1000-8000-00805f9b34fb";
+
+
+
+let currentMode = null;
+
+let currentStrength = 0;
+
+
+let keepAliveTimer = null;
+
+
+let pollingTimer = null;
+
 
 
 
@@ -134,11 +308,15 @@ function log(msg){
     box.innerHTML += msg+"<br>";
 
     box.scrollTop=box.scrollHeight;
+
 }
 
 
 
+
+
 async function connectBLE(){
+
 
     device =
     await navigator.bluetooth.requestDevice({
@@ -150,9 +328,11 @@ async function connectBLE(){
         ],
 
         optionalServices:[
-            SERVICE
+            SERVICE_UUID
         ]
+
     });
+
 
 
     let server =
@@ -161,38 +341,40 @@ async function connectBLE(){
 
     let service =
     await server.getPrimaryService(
-        SERVICE
+        SERVICE_UUID
     );
 
 
     writeChar =
     await service.getCharacteristic(
-        WRITE
+        WRITE_UUID
     );
 
 
     document.getElementById("status")
-    .innerText=
-    "已连接："+device.name;
+    .innerHTML =
+    "已连接: "+device.name;
 
 
     log("BLE连接成功");
+
 
 }
 
 
 
 
-// ===== BLE COMMAND =====
 
 
-async function sendCommand(bytes){
+async function send(bytes){
+
 
     if(!writeChar){
 
-        log("未连接BLE");
+        log("未连接设备");
 
         return;
+
     }
 
 
@@ -201,17 +383,44 @@ async function sendCommand(bytes){
         new Uint8Array(bytes)
     );
 
+
 }
 
 
 
 
-function makeSpeedCommand(percent){
+function intensityByte(value){
 
-    let value =
-    Math.round(
-        percent/100*255
+
+    if(value<=0){
+
+        return 0;
+
+    }
+
+
+    // 最低有效值
+
+    if(value<10){
+
+        return 25;
+
+    }
+
+
+    return Math.round(
+        value/100*255
     );
+
+
+}
+
+
+
+
+
+
+function intensityCommand(value){
 
 
     return [
@@ -221,7 +430,7 @@ function makeSpeedCommand(percent){
         0x00,
         0x00,
         0x01,
-        value,
+        intensityByte(value),
         0xAA
 
     ];
@@ -231,51 +440,153 @@ function makeSpeedCommand(percent){
 
 
 
-function manualSpeed(v){
 
-    document
-    .getElementById("value")
-    .innerText=v;
+function modeCommand(mode){
 
 
-    startKeepAlive(v);
+    return [
+
+        0x55,
+        0x03,
+        0x00,
+        0x00,
+        mode,
+        0x02,
+        0x00
+
+    ];
 
 }
 
 
 
-function startKeepAlive(v){
 
 
-    if(keepAlive){
+
+
+function startKeepAlive(){
+
+
+
+    if(keepAliveTimer){
 
         clearInterval(
-            keepAlive
+            keepAliveTimer
         );
 
     }
 
 
-    let cmd =
-    makeSpeedCommand(v);
+
+    sendCurrent();
 
 
-    sendCommand(cmd);
 
-
-    keepAlive =
+    keepAliveTimer =
     setInterval(()=>{
 
-        sendCommand(cmd);
+        sendCurrent();
 
     },1500);
 
 
-    log(
-    "强度 "+v+"% keepalive启动"
-    );
+}
+
+
+
+
+
+
+function sendCurrent(){
+
+
+    if(currentMode){
+
+        send(
+            modeCommand(currentMode)
+        );
+
+    }
+
+
+    if(currentStrength>0){
+
+        send(
+            intensityCommand(
+                currentStrength
+            )
+        );
+
+    }
+
 
 }
+
+
+
+
+
+function changeStrength(v){
+
+
+    currentStrength =
+    Number(v);
+
+
+    document
+    .getElementById("strengthText")
+    .innerText=v;
+
+
+    if(v==0){
+
+        stopDevice();
+
+        return;
+
+    }
+
+
+    startKeepAlive();
+
+
+    log(
+    "强度 "+v+"%"
+    );
+
+
+}
+
+
+
+
+
+function setMode(mode,btn){
+
+
+    currentMode=mode;
+
+
+    document
+    .querySelectorAll(".mode")
+    .forEach(
+        b=>b.classList.remove("active")
+    );
+
+
+    btn.classList.add("active");
+
+
+    startKeepAlive();
+
+
+    log(
+    "模式 "+mode
+    );
+
+
+}
+
 
 
 
@@ -283,17 +594,20 @@ function startKeepAlive(v){
 function stopDevice(){
 
 
-    if(keepAlive){
+
+    if(keepAliveTimer){
 
         clearInterval(
-            keepAlive
+            keepAliveTimer
         );
 
-        keepAlive=null;
+        keepAliveTimer=null;
+
     }
 
 
-    sendCommand([
+
+    send([
 
         0x55,
         0x04,
@@ -306,57 +620,73 @@ function stopDevice(){
     ]);
 
 
+
+    currentStrength=0;
+
+
     log("停止");
+
 
 }
 
 
 
-// ===== MCP POLLING =====
 
 
 
-async function startPolling(){
+
+// =================
+// AI Relay
+// =================
 
 
-    if(polling){
+
+
+function startPolling(){
+
+
+    if(pollingTimer){
 
         return;
+
     }
 
 
-    polling =
+    pollingTimer =
     setInterval(
-        pollCommand,
+        pollAI,
         300
     );
 
 
     log("AI轮询启动");
 
+
 }
 
 
 
 
-async function pollCommand(){
+
+
+async function pollAI(){
 
 
     let url =
-    document
-    .getElementById("railway")
-    .value;
+    document.getElementById("railway").value;
 
 
     let secret =
-    document
-    .getElementById("secret")
-    .value;
+    document.getElementById("secret").value;
+
 
 
     if(!url){
+
         return;
+
     }
+
 
 
     try{
@@ -373,34 +703,37 @@ async function pollCommand(){
         );
 
 
+
         let data =
         await res.json();
 
 
-        if(
-            data.command
-        ){
+
+        if(data.command){
+
 
             log(
             JSON.stringify(data.command)
             );
 
 
-            handleCommand(
+            handleAI(
                 data.command
             );
 
         }
 
 
-    }catch(e){
+    }
+
+    catch(e){
 
         log(
-        "轮询错误:"
-        +e
+        "AI错误 "+e
         );
 
     }
+
 
 
 }
@@ -408,19 +741,37 @@ async function pollCommand(){
 
 
 
-function handleCommand(cmd){
+
+
+function handleAI(cmd){
+
 
 
     if(
         cmd.action==="intensity"
     ){
 
-        startKeepAlive(
+        changeStrength(
             cmd.value
         );
 
 
     }
+
+
+
+    if(
+        cmd.action==="mode"
+    ){
+
+        setMode(
+            cmd.mode,
+            document.querySelectorAll(".mode")[cmd.mode-1]
+        );
+
+
+    }
+
 
 
     if(
@@ -437,6 +788,7 @@ function handleCommand(cmd){
 
 
 </script>
+
 
 </body>
 </html>
