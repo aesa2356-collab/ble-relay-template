@@ -4,31 +4,34 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 
-<title>SX176A Relay</title>
+<title>SX176A-02 Relay V3</title>
 
 <style>
 
-body {
-    font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     background:#f5f5f5;
     padding:20px;
     text-align:center;
 }
 
-h2 {
+.card{
+    background:white;
+    padding:20px;
     margin-bottom:20px;
+    border-radius:20px;
 }
 
 
-button {
+button{
 
     width:45%;
     height:60px;
 
     margin:8px;
 
-    border:none;
-    border-radius:14px;
+    border:0;
+    border-radius:15px;
 
     background:#222;
     color:white;
@@ -38,30 +41,22 @@ button {
 }
 
 
-button:active {
-
-    transform:scale(0.96);
-
-}
-
-
-.stop {
-
-    width:94%;
-    background:#c62828;
-
-}
-
-
-.mode.active {
+button.active{
 
     background:#1976d2;
 
 }
 
 
+.stop{
 
-input[type=range] {
+    width:95%;
+    background:#c62828;
+
+}
+
+
+input[type=range]{
 
     width:95%;
     height:40px;
@@ -69,26 +64,13 @@ input[type=range] {
 }
 
 
-.card {
-
-    background:white;
-
-    border-radius:18px;
-
-    padding:18px;
-
-    margin-bottom:20px;
-
-}
-
-
-#log {
-
-    text-align:left;
+#log{
 
     background:#111;
 
     color:#0f0;
+
+    text-align:left;
 
     height:160px;
 
@@ -98,20 +80,12 @@ input[type=range] {
 
     border-radius:10px;
 
-    font-family:monospace;
-
     font-size:13px;
 
-}
-
-
-.small {
-
-    color:#666;
-
-    font-size:14px;
+    font-family:monospace;
 
 }
+
 
 </style>
 
@@ -125,6 +99,7 @@ input[type=range] {
 
 
 <div class="card">
+
 
 <button onclick="connectBLE()">
 连接设备
@@ -146,7 +121,9 @@ input[type=range] {
 
 <h3>
 强度：
-<span id="strengthText">0</span>%
+<span id="strengthText">
+0
+</span>%
 </h3>
 
 
@@ -160,13 +137,23 @@ oninput="changeStrength(this.value)"
 >
 
 
-<p class="small">
-低于10%自动调整为最低有效档
+<p>
+当前模式：
+<span id="modeText">
+无
+</span>
+</p>
+
+
+<p>
+当前档位：
+<span id="levelText">
+0
+</span>
 </p>
 
 
 </div>
-
 
 
 
@@ -179,31 +166,38 @@ oninput="changeStrength(this.value)"
 </h3>
 
 
-<button class="mode" onclick="setMode(1,this)">
+<button class="mode"
+onclick="setMode(1,this)">
 模式1
 </button>
 
-<button class="mode" onclick="setMode(2,this)">
+
+<button class="mode"
+onclick="setMode(2,this)">
 模式2
 </button>
 
 
-<button class="mode" onclick="setMode(3,this)">
+<button class="mode"
+onclick="setMode(3,this)">
 模式3
 </button>
 
 
-<button class="mode" onclick="setMode(4,this)">
+<button class="mode"
+onclick="setMode(4,this)">
 模式4
 </button>
 
 
-<button class="mode" onclick="setMode(5,this)">
+<button class="mode"
+onclick="setMode(5,this)">
 模式5
 </button>
 
 
-<button class="mode" onclick="setMode(6,this)">
+<button class="mode"
+onclick="setMode(6,this)">
 模式6
 </button>
 
@@ -215,11 +209,12 @@ oninput="changeStrength(this.value)"
 
 <div class="card">
 
+<button class="stop"
+onclick="stopDevice()">
 
-<button class="stop" onclick="stopDevice()">
 停止
-</button>
 
+</button>
 
 </div>
 
@@ -270,13 +265,13 @@ style="width:90%;height:35px;"
 
 
 
-
 <script>
 
 
 let device;
 
 let writeChar;
+
 
 
 const SERVICE_UUID =
@@ -288,15 +283,19 @@ const WRITE_UUID =
 
 
 
-let currentMode = null;
 
-let currentStrength = 0;
+let currentMode = 1;
+
+let currentLevel = 0;
+
+let currentPercent = 0;
 
 
 let keepAliveTimer = null;
 
 
 let pollingTimer = null;
+
 
 
 
@@ -352,8 +351,8 @@ async function connectBLE(){
 
 
     document.getElementById("status")
-    .innerHTML =
-    "已连接: "+device.name;
+    .innerText =
+    "已连接 "+device.name;
 
 
     log("BLE连接成功");
@@ -366,12 +365,13 @@ async function connectBLE(){
 
 
 
+
 async function send(bytes){
 
 
     if(!writeChar){
 
-        log("未连接设备");
+        log("未连接");
 
         return;
 
@@ -389,28 +389,51 @@ async function send(bytes){
 
 
 
-function intensityByte(value){
 
 
-    if(value<=0){
+function levelFromPercent(percent){
+
+
+    percent =
+    Number(percent);
+
+
+    if(percent<=0){
 
         return 0;
 
     }
 
 
-    // 最低有效值
+    if(percent<=20){
 
-    if(value<10){
-
-        return 25;
+        return 1;
 
     }
 
 
-    return Math.round(
-        value/100*255
-    );
+    if(percent<=40){
+
+        return 2;
+
+    }
+
+
+    if(percent<=60){
+
+        return 3;
+
+    }
+
+
+    if(percent<=80){
+
+        return 4;
+
+    }
+
+
+    return 5;
 
 
 }
@@ -420,28 +443,8 @@ function intensityByte(value){
 
 
 
-function intensityCommand(value){
 
-
-    return [
-
-        0x55,
-        0x04,
-        0x00,
-        0x00,
-        0x01,
-        intensityByte(value),
-        0xAA
-
-    ];
-
-}
-
-
-
-
-
-function modeCommand(mode){
+function makeModeCommand(){
 
 
     return [
@@ -450,11 +453,35 @@ function modeCommand(mode){
         0x03,
         0x00,
         0x00,
-        mode,
-        0x02,
+
+        currentMode,
+
+        currentLevel,
+
         0x00
 
     ];
+
+
+}
+
+
+
+
+
+
+
+function sendCurrent(){
+
+
+    if(currentLevel>0){
+
+        send(
+            makeModeCommand()
+        );
+
+    }
+
 
 }
 
@@ -467,7 +494,6 @@ function modeCommand(mode){
 function startKeepAlive(){
 
 
-
     if(keepAliveTimer){
 
         clearInterval(
@@ -477,15 +503,15 @@ function startKeepAlive(){
     }
 
 
-
     sendCurrent();
-
 
 
     keepAliveTimer =
     setInterval(()=>{
 
+
         sendCurrent();
+
 
     },1500);
 
@@ -497,48 +523,32 @@ function startKeepAlive(){
 
 
 
-function sendCurrent(){
 
 
-    if(currentMode){
-
-        send(
-            modeCommand(currentMode)
-        );
-
-    }
+function changeStrength(value){
 
 
-    if(currentStrength>0){
-
-        send(
-            intensityCommand(
-                currentStrength
-            )
-        );
-
-    }
+    currentPercent =
+    Number(value);
 
 
-}
+    currentLevel =
+    levelFromPercent(value);
 
-
-
-
-
-function changeStrength(v){
-
-
-    currentStrength =
-    Number(v);
 
 
     document
     .getElementById("strengthText")
-    .innerText=v;
+    .innerText=value;
 
 
-    if(v==0){
+    document
+    .getElementById("levelText")
+    .innerText=currentLevel;
+
+
+
+    if(currentLevel===0){
 
         stopDevice();
 
@@ -547,11 +557,16 @@ function changeStrength(v){
     }
 
 
+
     startKeepAlive();
 
 
+
     log(
-    "强度 "+v+"%"
+    "强度 "+
+    value+
+    "% 档位"+
+    currentLevel
     );
 
 
@@ -561,10 +576,14 @@ function changeStrength(v){
 
 
 
+
+
+
 function setMode(mode,btn){
 
 
-    currentMode=mode;
+    currentMode =
+    mode;
 
 
     document
@@ -577,11 +596,22 @@ function setMode(mode,btn){
     btn.classList.add("active");
 
 
-    startKeepAlive();
+
+    document
+    .getElementById("modeText")
+    .innerText=mode;
+
+
+
+    if(currentLevel>0){
+
+        startKeepAlive();
+
+    }
 
 
     log(
-    "模式 "+mode
+    "切换模式 "+mode
     );
 
 
@@ -591,8 +621,9 @@ function setMode(mode,btn){
 
 
 
-function stopDevice(){
 
+
+function stopDevice(){
 
 
     if(keepAliveTimer){
@@ -621,7 +652,13 @@ function stopDevice(){
 
 
 
-    currentStrength=0;
+    currentLevel=0;
+
+
+    document
+    .getElementById("levelText")
+    .innerText=0;
+
 
 
     log("停止");
@@ -635,10 +672,10 @@ function stopDevice(){
 
 
 
-// =================
-// AI Relay
-// =================
 
+// =====================
+// AI
+// =====================
 
 
 
@@ -659,11 +696,10 @@ function startPolling(){
     );
 
 
-    log("AI轮询启动");
+    log("AI启动");
 
 
 }
-
 
 
 
@@ -673,11 +709,15 @@ async function pollAI(){
 
 
     let url =
-    document.getElementById("railway").value;
+    document
+    .getElementById("railway")
+    .value;
 
 
     let secret =
-    document.getElementById("secret").value;
+    document
+    .getElementById("secret")
+    .value;
 
 
 
@@ -724,6 +764,7 @@ async function pollAI(){
         }
 
 
+
     }
 
     catch(e){
@@ -748,42 +789,53 @@ function handleAI(cmd){
 
 
     if(
-        cmd.action==="intensity"
+    cmd.action==="mode"
     ){
 
-        changeStrength(
+        currentMode =
+        cmd.mode;
+
+
+    }
+
+
+
+    if(
+    cmd.action==="intensity"
+    ){
+
+        currentLevel =
+        levelFromPercent(
             cmd.value
         );
 
-
     }
 
 
 
     if(
-        cmd.action==="mode"
+    cmd.action==="set"
     ){
 
-        setMode(
-            cmd.mode,
-            document.querySelectorAll(".mode")[cmd.mode-1]
+        currentMode =
+        cmd.mode;
+
+        currentLevel =
+        levelFromPercent(
+            cmd.intensity
         );
 
-
     }
 
 
 
-    if(
-        cmd.action==="stop"
-    ){
+    startKeepAlive();
 
-        stopDevice();
-
-    }
 
 
 }
+
+
 
 
 
