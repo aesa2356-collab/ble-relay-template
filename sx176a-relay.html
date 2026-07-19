@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SX176A Relay</title>
+
+<style>
+body {
+    font-family: sans-serif;
+    padding:20px;
+}
+
+button {
+    font-size:18px;
+    padding:10px 20px;
+    margin:5px;
+}
+
+input {
+    width:90%;
+}
+
+#log {
+    margin-top:20px;
+    height:200px;
+    overflow:auto;
+    background:#111;
+    color:#0f0;
+    padding:10px;
+    font-family:monospace;
+}
+</style>
+
+</head>
+
+<body>
+
+<h2>SX176A BLE Relay</h2>
+
+
+<button onclick="connectBLE()">连接设备</button>
+
+<p id="status">未连接</p>
+
+
+<hr>
+
+
+<h3>手动控制</h3>
+
+<input 
+type="range"
+min="0"
+max="100"
+value="0"
+id="speed"
+oninput="manualSpeed(this.value)"
+>
+
+<p>
+当前强度：
+<span id="value">0</span>%
+</p>
+
+
+<button onclick="stopDevice()">
+停止
+</button>
+
+
+<hr>
+
+
+<h3>AI Relay</h3>
+
+<label>
+Railway 地址：
+</label>
+
+<input 
+id="railway"
+placeholder="https://xxx.up.railway.app"
+/>
+
+<br>
+
+<label>
+Secret：
+</label>
+
+<input 
+id="secret"
+/>
+
+
+<br>
+
+<button onclick="startPolling()">
+启动AI控制
+</button>
+
+
+<div id="log"></div>
+
+
+<script>
+
+
+let device=null;
+let writeChar=null;
+
+let keepAlive=null;
+
+let polling=null;
+
+
+// ===== BLE =====
+
+
+const SERVICE =
+"0000ffe0-0000-1000-8000-00805f9b34fb";
+
+
+const WRITE =
+"0000ffe1-0000-1000-8000-00805f9b34fb";
+
+
+
+function log(msg){
+
+    let box=document.getElementById("log");
+
+    box.innerHTML += msg+"<br>";
+
+    box.scrollTop=box.scrollHeight;
+}
+
+
+
+async function connectBLE(){
+
+    device =
+    await navigator.bluetooth.requestDevice({
+
+        filters:[
+            {
+                namePrefix:"SX176A"
+            }
+        ],
+
+        optionalServices:[
+            SERVICE
+        ]
+    });
+
+
+    let server =
+    await device.gatt.connect();
+
+
+    let service =
+    await server.getPrimaryService(
+        SERVICE
+    );
+
+
+    writeChar =
+    await service.getCharacteristic(
+        WRITE
+    );
+
+
+    document.getElementById("status")
+    .innerText=
+    "已连接："+device.name;
+
+
+    log("BLE连接成功");
+
+}
+
+
+
+
+// ===== BLE COMMAND =====
+
+
+async function sendCommand(bytes){
+
+    if(!writeChar){
+
+        log("未连接BLE");
+
+        return;
+    }
+
+
+    await writeChar
+    .writeValueWithoutResponse(
+        new Uint8Array(bytes)
+    );
+
+}
+
+
+
+
+function makeSpeedCommand(percent){
+
+    let value =
+    Math.round(
+        percent/100*255
+    );
+
+
+    return [
+
+        0x55,
+        0x04,
+        0x00,
+        0x00,
+        0x01,
+        value,
+        0xAA
+
+    ];
+
+}
+
+
+
+
+function manualSpeed(v){
+
+    document
+    .getElementById("value")
+    .innerText=v;
+
+
+    startKeepAlive(v);
+
+}
+
+
+
+function startKeepAlive(v){
+
+
+    if(keepAlive){
+
+        clearInterval(
+            keepAlive
+        );
+
+    }
+
+
+    let cmd =
+    makeSpeedCommand(v);
+
+
+    sendCommand(cmd);
+
+
+    keepAlive =
+    setInterval(()=>{
+
+        sendCommand(cmd);
+
+    },1500);
+
+
+    log(
+    "强度 "+v+"% keepalive启动"
+    );
+
+}
+
+
+
+
+function stopDevice(){
+
+
+    if(keepAlive){
+
+        clearInterval(
+            keepAlive
+        );
+
+        keepAlive=null;
+    }
+
+
+    sendCommand([
+
+        0x55,
+        0x04,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0xAA
+
+    ]);
+
+
+    log("停止");
+
+}
+
+
+
+// ===== MCP POLLING =====
+
+
+
+async function startPolling(){
+
+
+    if(polling){
+
+        return;
+    }
+
+
+    polling =
+    setInterval(
+        pollCommand,
+        300
+    );
+
+
+    log("AI轮询启动");
+
+}
+
+
+
+
+async function pollCommand(){
+
+
+    let url =
+    document
+    .getElementById("railway")
+    .value;
+
+
+    let secret =
+    document
+    .getElementById("secret")
+    .value;
+
+
+    if(!url){
+        return;
+    }
+
+
+    try{
+
+
+        let res =
+        await fetch(
+
+            url+
+            "/toy-next?secret="
+            +
+            encodeURIComponent(secret)
+
+        );
+
+
+        let data =
+        await res.json();
+
+
+        if(
+            data.command
+        ){
+
+            log(
+            JSON.stringify(data.command)
+            );
+
+
+            handleCommand(
+                data.command
+            );
+
+        }
+
+
+    }catch(e){
+
+        log(
+        "轮询错误:"
+        +e
+        );
+
+    }
+
+
+}
+
+
+
+
+function handleCommand(cmd){
+
+
+    if(
+        cmd.action==="intensity"
+    ){
+
+        startKeepAlive(
+            cmd.value
+        );
+
+
+    }
+
+
+    if(
+        cmd.action==="stop"
+    ){
+
+        stopDevice();
+
+    }
+
+
+}
+
+
+
+</script>
+
+</body>
+</html>
