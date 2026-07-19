@@ -49,7 +49,9 @@ app.get('/toy-next', (req, res) => {
 
   const cmd = toyQueue.command;
   toyQueue.command = null;
-  console.log(`📤 中继取走: ${cmd?.action} = ${cmd?.value}`);
+  console.log(
+    `📤 中继取走: ${JSON.stringify(cmd)}`
+   );
   res.json({ command: cmd });
 });
 
@@ -88,14 +90,29 @@ app.post('/', (req, res) => {
       result: {
         tools: [
           {
-            name: 'toy_set_speed',
-            description: '设置强度 (0-100)',
+            name: 'toy_set',
+            description: '设置SX176A-02模式和强度。mode为1-6，intensity为0-100。',
             inputSchema: {
               type: 'object',
               properties: {
-                value: { type: 'number', minimum: 0, maximum: 100 }
+          
+                mode: {
+                  type: 'number',
+                  minimum: 1,
+                  maximum: 6
+                },
+          
+                intensity: {
+                  type: 'number',
+                  minimum: 0,
+                  maximum: 100
+                }
+          
               },
-              required: ['value']
+              required: [
+                'mode',
+                'intensity'
+              ]
             }
           },
           {
@@ -117,18 +134,66 @@ app.post('/', (req, res) => {
       const toolName = params?.name;
       const args = params?.arguments || {};
 
-      if (toolName === 'toy_set_speed') {
-        const val = typeof args.value === 'number' ? args.value : 0;
-        toyQueue.command = { action: 'intensity', value: val, received: Date.now() };
+      if (toolName === 'toy_set') {
+
+
+        const mode =
+          typeof args.mode === 'number'
+          ? args.mode
+          : 1;
+      
+      
+        const intensity =
+          typeof args.intensity === 'number'
+          ? args.intensity
+          : 0;
+      
+      
+        toyQueue.command = {
+      
+          action: 'set',
+      
+          mode: mode,
+      
+          intensity: intensity,
+      
+          received: Date.now()
+      
+        };
+      
+      
         toyQueue.timestamp = Date.now();
-        console.log(`📥 存入队列: 强度 ${val}%`);
+      
+      
+        console.log(
+          `📥 设置模式 ${mode}, 强度 ${intensity}%`
+        );
+      
+      
         return res.json({
-          jsonrpc: '2.0',
-          id: id,
-          result: {
-            content: [{ type: 'text', text: `✅ 强度设为 ${val}%` }]
+      
+          jsonrpc:'2.0',
+      
+          id:id,
+      
+          result:{
+      
+            content:[
+      
+              {
+      
+                type:'text',
+      
+                text:`✅ 模式${mode} 强度${intensity}%`
+      
+              }
+      
+            ]
+      
           }
+      
         });
+      
       }
 
       if (toolName === 'toy_stop') {
