@@ -602,7 +602,30 @@ async function startAudioKeepAlive(){
 
 
         keepAliveAudio = new Audio(
-            "https://img.baibai.cv/f/dZymTQ/30min-osbvow%202.mp4"
+            "silent.mp3"
+        );
+
+        keepAliveAudio.addEventListener(
+            "play",
+            ()=>{
+                log("[KEEPALIVE] play event");
+            }
+        );
+
+
+        keepAliveAudio.addEventListener(
+            "pause",
+            ()=>{
+                log("[KEEPALIVE] pause event");
+            }
+        );
+
+
+        keepAliveAudio.addEventListener(
+            "ended",
+            ()=>{
+                log("[KEEPALIVE] ended event");
+            }
         );
 
 
