@@ -590,6 +590,89 @@ function stopDevice(){
 let pollingTimer = null;
 let pollingInFlight = false;
 let lastPollTime = 0;
+let relaySocket = null;
+
+
+function connectWS(){
+
+    let cleanUrl =
+        document.getElementById("railway")
+            .value.trim().replace(/\/$/, "");
+
+    if(!cleanUrl)
+        return;
+
+
+    if(
+        relaySocket &&
+        (
+            relaySocket.readyState === WebSocket.CONNECTING ||
+            relaySocket.readyState === WebSocket.OPEN
+        )
+    ){
+        return;
+    }
+
+
+    let wsUrl =
+        cleanUrl
+            .replace(/^https:/, "wss:")
+            .replace(/^http:/, "ws:")
+        + "/ws";
+
+
+    log("[WS] connecting");
+
+    relaySocket = new WebSocket(wsUrl);
+
+
+    relaySocket.addEventListener(
+        "open",
+        ()=>{
+            log("[WS] connected");
+        }
+    );
+
+
+    relaySocket.addEventListener(
+        "message",
+        (event)=>{
+
+            log("[WS] message received");
+
+            try{
+
+                let data = JSON.parse(event.data);
+
+                handleCommand(data);
+
+            }
+            catch(e){
+
+                log("[WS] error: " + e);
+
+            }
+
+        }
+    );
+
+
+    relaySocket.addEventListener(
+        "error",
+        (event)=>{
+            log("[WS] error: " + event.type);
+        }
+    );
+
+
+    relaySocket.addEventListener(
+        "close",
+        ()=>{
+            relaySocket = null;
+        }
+    );
+
+}
 
 
 async function startAudioKeepAlive(){
@@ -660,6 +743,8 @@ async function startPolling(){
     log("[RELAY] startPolling");
 
     await startAudioKeepAlive();
+
+    connectWS();
 
     if(pollingTimer){
 

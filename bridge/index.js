@@ -1,11 +1,32 @@
 import express from 'express';
 import cors from 'cors';
+import { createServer } from 'http';
+import { WebSocketServer } from 'ws';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(cors());
 app.use(express.json());
+
+const server = createServer(app);
+const wsClients = new Set();
+
+const wss = new WebSocketServer({
+  server,
+  path: '/ws'
+});
+
+wss.on('connection', (ws) => {
+  console.log('[WS] client connected');
+
+  wsClients.add(ws);
+
+  ws.on('close', () => {
+    console.log('[WS] client disconnected');
+    wsClients.delete(ws);
+  });
+});
 
 const toyQueue = {
   command: null,
@@ -211,6 +232,21 @@ app.post('/', (req, res) => {
       
       
         toyQueue.timestamp = Date.now();
+
+        const payload = JSON.stringify(
+          toyQueue.command
+        );
+
+        console.log(
+          '[WS] broadcast:',
+          payload
+        );
+
+        wsClients.forEach((client) => {
+          if (client.readyState === 1) {
+            client.send(payload);
+          }
+        });
       
       
         console.log(
@@ -250,8 +286,24 @@ app.post('/', (req, res) => {
       }
 
       if (toolName === 'toy_stop') {
-        toyQueue.command = { action: 'stop', value: 0, received: Date.now() };
+        toyQueue.command = { action: 'stop' };
         toyQueue.timestamp = Date.now();
+
+        const payload = JSON.stringify(
+          toyQueue.command
+        );
+
+        console.log(
+          '[WS] broadcast:',
+          payload
+        );
+
+        wsClients.forEach((client) => {
+          if (client.readyState === 1) {
+            client.send(payload);
+          }
+        });
+
         console.log(`📥 存入队列: 停止`);
         return res.json({
           jsonrpc: '2.0',
@@ -280,6 +332,6 @@ app.post('/', (req, res) => {
   res.json({ jsonrpc: '2.0', id: id, result: {} });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 服务运行在端口 ${PORT}`);
+server.listen(PORT, () => {
+  console.log(`server running on ${PORT}`);
 });
