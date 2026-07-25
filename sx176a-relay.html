@@ -765,6 +765,14 @@ function executeCommandOnce(command, source){
 
         log("[DEDUP] duplicate command ignored");
 
+        if(keepAliveTimer){
+
+            clearInterval(keepAliveTimer);
+
+            keepAliveTimer = null;
+
+        }
+
         return;
 
     }
