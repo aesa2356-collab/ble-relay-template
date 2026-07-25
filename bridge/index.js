@@ -67,6 +67,11 @@ app.get('/toy-next', (req, res) => {
 
   } 
 
+  console.log(
+    "QUEUE_BEFORE_TAKE:",
+    JSON.stringify(toyQueue)
+  );
+
   const cmd = toyQueue.command;
 
 
@@ -78,6 +83,11 @@ app.get('/toy-next', (req, res) => {
 
 
   toyQueue.command = null;
+
+  console.log(
+    "QUEUE_AFTER_TAKE:",
+    JSON.stringify(toyQueue)
+  );
 
 
   console.log(
@@ -93,7 +103,11 @@ app.get('/toy-next', (req, res) => {
 app.get('/status', (req, res) => {
   res.json({
     hasCommand: toyQueue.command !== null,
-    age: Date.now() - toyQueue.timestamp
+    command: toyQueue.command,
+    timestamp: toyQueue.timestamp,
+    age: toyQueue.timestamp
+      ? Date.now() - toyQueue.timestamp
+      : 0
   });
 });
 
@@ -201,6 +215,11 @@ app.post('/', (req, res) => {
       
         console.log(
           `📥 设置模式 ${mode}, 强度 ${intensity}%`
+        );
+
+        console.log(
+          "QUEUE_NOW:",
+          JSON.stringify(toyQueue)
         );
       
       
