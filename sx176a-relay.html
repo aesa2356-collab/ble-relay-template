@@ -187,6 +187,7 @@ let characteristic;
 let keepAliveAudio = null;
 let audioKeepAliveEnabled = false;
 let audioResumeInFlight = false;
+let lastAudioResumeAttemptAt = 0;
 
 let currentMode = 1;
 let currentLevel = 0;
@@ -258,9 +259,11 @@ document.addEventListener(
             + document.visibilityState
         );
 
-        await resumeAudioKeepAlive(
-            "visibilitychange"
-        );
+        if(document.visibilityState === "visible"){
+
+            await resumeAudioKeepAlive();
+
+        }
 
         if(heartbeatTimer){
             logHeartbeatVisibility();
@@ -859,7 +862,7 @@ function connectWS(){
 }
 
 
-async function resumeAudioKeepAlive(reason){
+async function resumeAudioKeepAlive(){
 
     if(
         !audioKeepAliveEnabled ||
@@ -870,13 +873,17 @@ async function resumeAudioKeepAlive(reason){
         return;
     }
 
+    const now = Date.now();
+
+    if(now - lastAudioResumeAttemptAt < 3000){
+        return;
+    }
+
 
     audioResumeInFlight = true;
+    lastAudioResumeAttemptAt = now;
 
-    log(
-        "[KEEPALIVE] resume attempt: "
-        + reason
-    );
+    log("[KEEPALIVE] resume attempt");
 
 
     try{
@@ -919,9 +926,7 @@ async function startAudioKeepAlive(){
 
         if(keepAliveAudio){
 
-            await resumeAudioKeepAlive(
-                "relay start"
-            );
+            await resumeAudioKeepAlive();
 
             return;
         }
@@ -942,11 +947,7 @@ async function startAudioKeepAlive(){
         keepAliveAudio.addEventListener(
             "pause",
             ()=>{
-                log("[KEEPALIVE] pause event");
-
-                resumeAudioKeepAlive(
-                    "pause event"
-                );
+                log("[KEEPALIVE] pause detected");
             }
         );
 
@@ -1067,6 +1068,7 @@ async function startPolling(){
 function stopPolling(){
 
     audioKeepAliveEnabled = false;
+    lastAudioResumeAttemptAt = 0;
 
     if(heartbeatTimer){
 
