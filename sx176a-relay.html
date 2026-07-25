@@ -306,6 +306,21 @@ try{
             WRITE_UUID
         );
 
+    log(
+        "[BLE] characteristic properties: "
+        + JSON.stringify(characteristic.properties)
+    );
+
+    log(
+        "[BLE] has writeValueWithResponse: "
+        + (typeof characteristic.writeValueWithResponse)
+    );
+
+    log(
+        "[BLE] has writeValueWithoutResponse: "
+        + (typeof characteristic.writeValueWithoutResponse)
+    );
+
 
     document.getElementById("status").innerHTML =
         "已连接: "
