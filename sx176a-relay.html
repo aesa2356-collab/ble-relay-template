@@ -397,9 +397,24 @@ async function send(bytes){
         );
 
 
-        await characteristic.writeValueWithoutResponse(
-            packet
-        );
+        if(characteristic.properties.write){
+
+            log("[BLE] WRITE_MODE: withResponse");
+
+            await characteristic.writeValueWithResponse(
+                packet
+            );
+
+        }
+        else{
+
+            log("[BLE] WRITE_MODE: withoutResponse");
+
+            await characteristic.writeValueWithoutResponse(
+                packet
+            );
+
+        }
 
 
         log("[BLE] WRITE_OK");
