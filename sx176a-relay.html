@@ -219,6 +219,34 @@ function log(msg){
 
 }
 
+document.addEventListener(
+    "visibilitychange",
+    ()=>{
+
+        log(
+            "[PAGE] visibility="
+            + document.visibilityState
+        );
+
+    }
+);
+
+
+window.addEventListener(
+    "pagehide",
+    ()=>{
+        log("[PAGE] pagehide");
+    }
+);
+
+
+window.addEventListener(
+    "pageshow",
+    ()=>{
+        log("[PAGE] pageshow");
+    }
+);
+
 
 // =======================
 // 连接 BLE
@@ -561,6 +589,7 @@ function stopDevice(){
 
 let pollingTimer = null;
 let pollingInFlight = false;
+let lastPollTime = 0;
 
 
 async function startAudioKeepAlive(){
@@ -668,6 +697,24 @@ function stopPolling(){
 
 
 async function pollCommand(){
+
+const now = Date.now();
+
+
+if(lastPollTime){
+
+    log(
+        "[POLL_INTERVAL] "
+        +
+        (now-lastPollTime)
+        +
+        "ms"
+    );
+
+}
+
+
+lastPollTime = now;
 
 
 if(pollingInFlight)
