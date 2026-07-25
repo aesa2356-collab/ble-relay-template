@@ -271,6 +271,20 @@ try{
         "BLE连接成功"
     );
 
+    device.addEventListener(
+        "gattserverdisconnected",
+        ()=>{
+
+            characteristic=null;
+
+            log("[BLE] DISCONNECTED");
+
+            document.getElementById("status").innerHTML =
+                "连接已断开";
+
+        }
+    );
+
 
 }
 catch(e){
@@ -305,9 +319,35 @@ async function send(bytes){
     }
 
 
-    await characteristic.writeValueWithoutResponse(
-        new Uint8Array(bytes)
-    );
+    try{
+
+        log(
+            "[BLE] WRITE_START: "
+            +
+            Array.from(bytes)
+                .map(value=>value.toString(16).padStart(2,"0"))
+                .join("")
+                .toUpperCase()
+        );
+
+
+        await characteristic.writeValueWithoutResponse(
+            new Uint8Array(bytes)
+        );
+
+
+        log("[BLE] WRITE_OK");
+
+
+    }
+    catch(e){
+
+        log(
+            "[BLE] WRITE_FAIL: "
+            + e
+        );
+
+    }
 
 
     log(
@@ -519,12 +559,34 @@ function stopDevice(){
 
 
 let pollingTimer = null;
+let pollingInFlight = false;
 
 
 function startPolling(){
 
-    if(pollingTimer)
+    log("[RELAY] startPolling");
+
+    if(pollingTimer){
+
         clearInterval(pollingTimer);
+
+        pollingTimer = null;
+
+    }
+
+
+    let cleanUrl =
+        document.getElementById("railway")
+            .value.trim().replace(/\/$/, "");
+
+    let hasSecret =
+        document.getElementById("secret")
+            .value.trim().length > 0;
+
+
+    log("AI Relay polling started");
+    log("轮询地址：" + cleanUrl);
+    log("Secret 是否已填写：" + (hasSecret ? "是" : "否"));
 
     pollCommand();
 
@@ -533,13 +595,17 @@ function startPolling(){
         300
     );
 
-    log("AI Relay polling started");
-
 }
 
 
 async function pollCommand(){
 
+
+if(pollingInFlight)
+    return;
+
+
+pollingInFlight = true;
 
 try{
 
@@ -556,6 +622,8 @@ try{
     if(!cleanUrl)
         return;
 
+
+    log("[POLL] 请求 Railway");
 
     let res =
         await fetch(
@@ -588,6 +656,7 @@ try{
 
     let text = await res.text();
 
+    log("[POLL] 返回: " + text);
 
 
     if(!text)
@@ -595,18 +664,65 @@ try{
 
 
 
-    let cmd =
-        JSON.parse(text);
+    let data;
 
 
+    try{
 
-    if(!cmd.command)
+        data = JSON.parse(text);
+
+        log("[POLL] 解析结果: " + JSON.stringify(data));
+
+    }
+    catch(parseError){
+
+        log("轮询响应状态：" + res.status);
+        log("轮询原始响应：" + text);
+        log("轮询JSON解析错误：" + parseError);
         return;
 
+    }
+
+
+    let command = null;
+
+
+    if(data && data.command){
+
+        command = data.command;
+
+    }
+    else if(
+        data &&
+        typeof data.action === "string"
+    ){
+
+        command = data;
+
+    }
+
+
+    if(!command){
+
+        log("[POLL] 当前无AI命令");
+
+        return;
+
+    }
+
+
+    log("轮询响应状态：" + res.status);
+    log("轮询原始响应：" + text);
+    log("收到AI: " + JSON.stringify(command));
+
+    log(
+        "[POLL] 准备处理AI命令: "
+        + JSON.stringify(command)
+    );
 
 
     handleCommand(
-        cmd.command
+        command
     );
 
 
@@ -615,14 +731,17 @@ catch(e){
 
 
     log(
-        "轮询错误:"
-        +
-        e
+        "[POLL ERROR]: "
+        +e
     );
 
 
 }
+finally{
 
+    pollingInFlight = false;
+
+}
 
 
 }
@@ -641,15 +760,24 @@ catch(e){
 
 function handleCommand(cmd){
 
-
     log(
-        "收到AI:"
-        + JSON.stringify(cmd)
+        "[HANDLE] command进入处理"
     );
+
+    log("开始执行AI命令: " + JSON.stringify(cmd));
 
 
 
     if(cmd.action==="set"){
+
+
+        log(
+            "AI设置：模式"
+            + cmd.mode
+            + "，强度"
+            + cmd.intensity
+            + "%"
+        );
 
 
         if(cmd.mode!==undefined){
