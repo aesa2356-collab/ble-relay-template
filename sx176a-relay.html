@@ -247,7 +247,7 @@ document.addEventListener(
         );
 
         if(heartbeatTimer){
-            logHeartbeat();
+            logHeartbeatVisibility();
         }
 
     }
@@ -840,16 +840,7 @@ async function startAudioKeepAlive(){
 }
 
 
-function logHeartbeat(){
-
-    const now = Date.now();
-
-    const gap =
-        lastHeartbeatTime
-        ? now - lastHeartbeatTime
-        : 0;
-
-    lastHeartbeatTime = now;
+function logHeartbeatVisibility(){
 
     const audioState =
         keepAliveAudio
@@ -857,12 +848,12 @@ function logHeartbeat(){
         : "not-created";
 
     log(
-        "[HEARTBEAT] gap="
-        + gap
-        + "ms visibility="
+        "[HEARTBEAT] "
         + document.visibilityState
         + " audioPaused="
         + audioState
+        + " time="
+        + new Date().toLocaleTimeString()
     );
 
 }
@@ -876,10 +867,10 @@ function startHeartbeat(){
 
     lastHeartbeatTime = Date.now();
 
-    logHeartbeat();
-
     heartbeatTimer = setInterval(
-        logHeartbeat,
+        ()=>{
+            lastHeartbeatTime = Date.now();
+        },
         5000
     );
 
@@ -937,8 +928,6 @@ function stopPolling(){
         heartbeatTimer = null;
 
         lastHeartbeatTime = 0;
-
-        log("[HEARTBEAT] stopped");
 
     }
 
