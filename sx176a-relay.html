@@ -423,6 +423,14 @@ async function send(bytes){
             + packetHex
         );
 
+        log(
+            "[BLE SEND]"
+            + "<br>visibility="
+            + document.visibilityState
+            + "<br>hex="
+            + packetHex
+        );
+
         if(characteristic.properties.write){
 
             log("[BLE] WRITE_MODE: withResponse");
@@ -674,6 +682,12 @@ let lastCommandId = null;
 
 function executeCommandOnce(command){
 
+    log(
+        "[COMMAND HANDLE]"
+        + "<br>visibility="
+        + document.visibilityState
+    );
+
     const commandId = [
         command.action ?? "",
         command.mode ?? "",
@@ -751,6 +765,12 @@ function connectWS(){
                 let data = JSON.parse(event.data);
 
                 log("[WS] parsed: " + JSON.stringify(data));
+
+                log(
+                    "[WS COMMAND]"
+                    + "<br>visibility="
+                    + document.visibilityState
+                );
 
                 executeCommandOnce(data);
 
@@ -1177,6 +1197,12 @@ try{
         );
     }
 
+
+    log(
+        "[POLL COMMAND]"
+        + "<br>visibility="
+        + document.visibilityState
+    );
 
     executeCommandOnce(
         command
