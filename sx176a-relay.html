@@ -366,18 +366,39 @@ async function send(bytes){
 
     try{
 
-        log(
-            "[BLE] WRITE_START: "
-            +
-            Array.from(bytes)
+        const packet =
+            new Uint8Array(bytes);
+
+        const packetBytes =
+            Array.from(packet)
+                .map(value=>value.toString(16).padStart(2,"0"))
+                .join(" ")
+                .toUpperCase();
+
+        const packetHex =
+            Array.from(packet)
                 .map(value=>value.toString(16).padStart(2,"0"))
                 .join("")
-                .toUpperCase()
+                .toUpperCase();
+
+        log(
+            "[BLE DEBUG]"
+            + "<br>mode=" + currentMode
+            + "<br>intensity=" + currentPercent
+            + "<br>bytes:"
+            + "<br>" + packetBytes
+            + "<br>hex:"
+            + "<br>" + packetHex
+        );
+
+        log(
+            "[BLE] WRITE_START: "
+            + packetHex
         );
 
 
         await characteristic.writeValueWithoutResponse(
-            new Uint8Array(bytes)
+            packet
         );
 
 
