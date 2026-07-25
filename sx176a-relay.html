@@ -411,6 +411,7 @@ async function send(bytes){
             + packetHex
         );
 
+        log("[BLE] duplicate send enabled");
 
         if(characteristic.properties.write){
 
@@ -420,6 +421,18 @@ async function send(bytes){
                 packet
             );
 
+            log("[BLE] WRITE #1");
+
+            await new Promise(
+                resolve=>setTimeout(resolve,500)
+            );
+
+            await characteristic.writeValueWithResponse(
+                packet
+            );
+
+            log("[BLE] WRITE #2");
+
         }
         else{
 
@@ -428,6 +441,18 @@ async function send(bytes){
             await characteristic.writeValueWithoutResponse(
                 packet
             );
+
+            log("[BLE] WRITE #1");
+
+            await new Promise(
+                resolve=>setTimeout(resolve,500)
+            );
+
+            await characteristic.writeValueWithoutResponse(
+                packet
+            );
+
+            log("[BLE] WRITE #2");
 
         }
 
