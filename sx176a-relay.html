@@ -191,6 +191,8 @@ let currentLevel = 0;
 let currentPercent = 0;
 
 let keepAliveTimer = null;
+let heartbeatTimer = null;
+let lastHeartbeatTime = 0;
 
 
 // =======================
@@ -243,6 +245,10 @@ document.addEventListener(
             "[PAGE] visibility="
             + document.visibilityState
         );
+
+        if(heartbeatTimer){
+            logHeartbeat();
+        }
 
     }
 );
@@ -834,11 +840,59 @@ async function startAudioKeepAlive(){
 }
 
 
+function logHeartbeat(){
+
+    const now = Date.now();
+
+    const gap =
+        lastHeartbeatTime
+        ? now - lastHeartbeatTime
+        : 0;
+
+    lastHeartbeatTime = now;
+
+    const audioState =
+        keepAliveAudio
+        ? keepAliveAudio.paused
+        : "not-created";
+
+    log(
+        "[HEARTBEAT] gap="
+        + gap
+        + "ms visibility="
+        + document.visibilityState
+        + " audioPaused="
+        + audioState
+    );
+
+}
+
+
+function startHeartbeat(){
+
+    if(heartbeatTimer){
+        clearInterval(heartbeatTimer);
+    }
+
+    lastHeartbeatTime = Date.now();
+
+    logHeartbeat();
+
+    heartbeatTimer = setInterval(
+        logHeartbeat,
+        5000
+    );
+
+}
+
+
 async function startPolling(){
 
     log("[RELAY] startPolling");
 
     await startAudioKeepAlive();
+
+    startHeartbeat();
 
     connectWS();
 
@@ -875,6 +929,19 @@ async function startPolling(){
 
 
 function stopPolling(){
+
+    if(heartbeatTimer){
+
+        clearInterval(heartbeatTimer);
+
+        heartbeatTimer = null;
+
+        lastHeartbeatTime = 0;
+
+        log("[HEARTBEAT] stopped");
+
+    }
+
 
     if(pollingTimer){
 
