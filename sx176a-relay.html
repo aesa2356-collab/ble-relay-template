@@ -195,6 +195,10 @@ let currentPercent = 0;
 let keepAliveTimer = null;
 let heartbeatTimer = null;
 let lastHeartbeatTime = 0;
+let lastVisibilityState = document.visibilityState;
+let isHandlingAiCommand = false;
+let lastAiBlePacket = null;
+let lastAiBleSentAt = 0;
 
 
 // =======================
@@ -243,6 +247,12 @@ document.addEventListener(
     "visibilitychange",
     async ()=>{
 
+        const previousVisibilityState =
+            lastVisibilityState;
+
+        lastVisibilityState =
+            document.visibilityState;
+
         log(
             "[PAGE] visibility="
             + document.visibilityState
@@ -254,6 +264,34 @@ document.addEventListener(
 
         if(heartbeatTimer){
             logHeartbeatVisibility();
+        }
+
+        if(
+            previousVisibilityState === "hidden" &&
+            document.visibilityState === "visible" &&
+            lastAiBlePacket &&
+            Date.now() - lastAiBleSentAt <= 30000
+        ){
+
+            const retestPacket =
+                lastAiBlePacket;
+
+            lastAiBlePacket = null;
+            lastAiBleSentAt = 0;
+
+            const retestHex =
+                Array.from(retestPacket)
+                    .map(value=>value.toString(16).padStart(2,"0"))
+                    .join("")
+                    .toUpperCase();
+
+            log(
+                "[VISIBLE RETEST] hex="
+                + retestHex
+            );
+
+            await send(retestPacket);
+
         }
 
     }
@@ -395,6 +433,16 @@ async function send(bytes){
 
         const packet =
             new Uint8Array(bytes);
+
+        if(isHandlingAiCommand){
+
+            lastAiBlePacket =
+                new Uint8Array(packet);
+
+            lastAiBleSentAt =
+                Date.now();
+
+        }
 
         const packetBytes =
             Array.from(packet)
@@ -1243,6 +1291,8 @@ finally{
 
 function handleCommand(cmd){
 
+    isHandlingAiCommand = true;
+
     log(
         "[HANDLE] command进入处理"
     );
@@ -1326,6 +1376,8 @@ function handleCommand(cmd){
 
 
     }
+
+    isHandlingAiCommand = false;
 
 
 }
