@@ -619,6 +619,13 @@ function changeIntensity(value){
 
 function makeModeCommand(){
 
+    log(
+        "[COMMAND STATE]"
+        + "<br>currentMode=" + currentMode
+        + "<br>currentPercent=" + currentPercent
+        + "<br>currentLevel=" + currentLevel
+    );
+
     return [
         0x55,
         0x03,
