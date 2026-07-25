@@ -184,6 +184,7 @@ oninput="changeIntensity(this.value)"
 
 let device;
 let characteristic;
+let keepAliveAudio = null;
 
 let currentMode = 1;
 let currentLevel = 0;
@@ -562,9 +563,51 @@ let pollingTimer = null;
 let pollingInFlight = false;
 
 
-function startPolling(){
+async function startAudioKeepAlive(){
+
+    try{
+
+        if(keepAliveAudio){
+            return;
+        }
+
+
+        keepAliveAudio = new Audio(
+            "https://img.baibai.cv/f/dZymTQ/30min-osbvow%202.mp4"
+        );
+
+
+        keepAliveAudio.loop = true;
+
+        keepAliveAudio.muted = true;
+
+        keepAliveAudio.playsInline = true;
+
+
+        await keepAliveAudio.play();
+
+
+        log("[KEEPALIVE] audio playing");
+
+
+    }
+    catch(e){
+
+        log(
+            "[KEEPALIVE] audio failed: "
+            + e
+        );
+
+    }
+
+}
+
+
+async function startPolling(){
 
     log("[RELAY] startPolling");
+
+    await startAudioKeepAlive();
 
     if(pollingTimer){
 
@@ -594,6 +637,32 @@ function startPolling(){
         pollCommand,
         300
     );
+
+}
+
+
+function stopPolling(){
+
+    if(pollingTimer){
+
+        clearInterval(pollingTimer);
+
+        pollingTimer = null;
+
+    }
+
+
+    if(keepAliveAudio){
+
+        keepAliveAudio.pause();
+
+        keepAliveAudio.currentTime = 0;
+
+        keepAliveAudio = null;
+
+        log("[KEEPALIVE] audio stopped");
+
+    }
 
 }
 
