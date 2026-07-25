@@ -200,6 +200,14 @@ let keepAliveTimer = null;
 const SERVICE_UUID = "FFE0";
 const WRITE_UUID = "FFE1";
 
+// DEBUG_POLL:
+// false = hide polling logs
+// true = show polling debug logs
+const DEBUG_POLL = false;
+
+const DEFAULT_RAILWAY_URL =
+    "https://ble-relay-template-production-e4ba.up.railway.app";
+
 
 // =======================
 // 日志
@@ -218,6 +226,14 @@ function log(msg){
     box.scrollTop=box.scrollHeight;
 
 }
+
+window.addEventListener(
+    "DOMContentLoaded",
+    ()=>{
+        document.getElementById("railway").value =
+            DEFAULT_RAILWAY_URL;
+    }
+);
 
 document.addEventListener(
     "visibilitychange",
@@ -639,10 +655,13 @@ function connectWS(){
         (event)=>{
 
             log("[WS] message received");
+            log("[WS] raw message: " + event.data);
 
             try{
 
                 let data = JSON.parse(event.data);
+
+                log("[WS] parsed: " + JSON.stringify(data));
 
                 handleCommand(data);
 
@@ -809,7 +828,7 @@ async function pollCommand(){
 const now = Date.now();
 
 
-if(lastPollTime){
+if(DEBUG_POLL && lastPollTime){
 
     log(
         "[POLL_INTERVAL] "
@@ -847,7 +866,9 @@ try{
         return;
 
 
-    log("[POLL] 请求 Railway");
+    if(DEBUG_POLL){
+        log("[POLL] 请求 Railway");
+    }
 
     let res =
         await fetch(
@@ -880,7 +901,9 @@ try{
 
     let text = await res.text();
 
-    log("[POLL] 返回: " + text);
+    if(DEBUG_POLL){
+        log("[POLL] 返回: " + text);
+    }
 
 
     if(!text)
@@ -895,7 +918,9 @@ try{
 
         data = JSON.parse(text);
 
-        log("[POLL] 解析结果: " + JSON.stringify(data));
+        if(DEBUG_POLL){
+            log("[POLL] 解析结果: " + JSON.stringify(data));
+        }
 
     }
     catch(parseError){
@@ -928,21 +953,25 @@ try{
 
     if(!command){
 
-        log("[POLL] 当前无AI命令");
+        if(DEBUG_POLL){
+            log("[POLL] 当前无AI命令");
+        }
 
         return;
 
     }
 
 
-    log("轮询响应状态：" + res.status);
-    log("轮询原始响应：" + text);
-    log("收到AI: " + JSON.stringify(command));
+    if(DEBUG_POLL){
+        log("轮询响应状态：" + res.status);
+        log("轮询原始响应：" + text);
+        log("收到AI: " + JSON.stringify(command));
 
-    log(
-        "[POLL] 准备处理AI命令: "
-        + JSON.stringify(command)
-    );
+        log(
+            "[POLL] 准备处理AI命令: "
+            + JSON.stringify(command)
+        );
+    }
 
 
     handleCommand(
