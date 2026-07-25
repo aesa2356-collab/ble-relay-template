@@ -55,13 +55,17 @@ app.get('/toy-next', (req, res) => {
   if (age > 5000) {
 
     console.log(
-      "⌛ 命令已过期"
+      `⌛ 清除过期命令: ${JSON.stringify(toyQueue.command)}`
     );
 
-    return res.json({ command: null });
+    toyQueue.command = null;
+    toyQueue.timestamp = 0;
 
-  }
+    return res.json({
+      command: null
+    });
 
+  } 
 
   const cmd = toyQueue.command;
 
