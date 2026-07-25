@@ -185,6 +185,8 @@ oninput="changeIntensity(this.value)"
 let device;
 let characteristic;
 let keepAliveAudio = null;
+let audioKeepAliveEnabled = false;
+let audioResumeInFlight = false;
 
 let currentMode = 1;
 let currentLevel = 0;
@@ -239,11 +241,15 @@ window.addEventListener(
 
 document.addEventListener(
     "visibilitychange",
-    ()=>{
+    async ()=>{
 
         log(
             "[PAGE] visibility="
             + document.visibilityState
+        );
+
+        await resumeAudioKeepAlive(
+            "visibilitychange"
         );
 
         if(heartbeatTimer){
@@ -777,11 +783,70 @@ function connectWS(){
 }
 
 
+async function resumeAudioKeepAlive(reason){
+
+    if(
+        !audioKeepAliveEnabled ||
+        !keepAliveAudio ||
+        !keepAliveAudio.paused ||
+        audioResumeInFlight
+    ){
+        return;
+    }
+
+
+    audioResumeInFlight = true;
+
+    log(
+        "[KEEPALIVE] resume attempt: "
+        + reason
+    );
+
+
+    try{
+
+        await keepAliveAudio.play();
+
+        if(!audioKeepAliveEnabled){
+
+            keepAliveAudio?.pause();
+
+            return;
+
+        }
+
+        log("[KEEPALIVE] audio resumed");
+
+    }
+    catch(e){
+
+        log(
+            "[KEEPALIVE] resume failed: "
+            + e
+        );
+
+    }
+    finally{
+
+        audioResumeInFlight = false;
+
+    }
+
+}
+
+
 async function startAudioKeepAlive(){
 
     try{
 
+        audioKeepAliveEnabled = true;
+
         if(keepAliveAudio){
+
+            await resumeAudioKeepAlive(
+                "relay start"
+            );
+
             return;
         }
 
@@ -802,6 +867,10 @@ async function startAudioKeepAlive(){
             "pause",
             ()=>{
                 log("[KEEPALIVE] pause event");
+
+                resumeAudioKeepAlive(
+                    "pause event"
+                );
             }
         );
 
@@ -816,7 +885,7 @@ async function startAudioKeepAlive(){
 
         keepAliveAudio.loop = true;
 
-        keepAliveAudio.muted = true;
+        keepAliveAudio.muted = false;
 
         keepAliveAudio.playsInline = true;
 
@@ -920,6 +989,8 @@ async function startPolling(){
 
 
 function stopPolling(){
+
+    audioKeepAliveEnabled = false;
 
     if(heartbeatTimer){
 
