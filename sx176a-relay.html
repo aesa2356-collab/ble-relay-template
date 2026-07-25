@@ -728,12 +728,17 @@ let relaySocket = null;
 let lastCommandId = null;
 
 
-function executeCommandOnce(command){
+function executeCommandOnce(command, source){
 
     log(
         "[COMMAND HANDLE]"
         + "<br>visibility="
         + document.visibilityState
+    );
+
+    log(
+        "[COMMAND SOURCE] "
+        + source
     );
 
     const commandId = [
@@ -820,7 +825,10 @@ function connectWS(){
                     + document.visibilityState
                 );
 
-                executeCommandOnce(data);
+                executeCommandOnce(
+                    data,
+                    "websocket"
+                );
 
             }
             catch(e){
@@ -1253,7 +1261,8 @@ try{
     );
 
     executeCommandOnce(
-        command
+        command,
+        "polling"
     );
 
 
