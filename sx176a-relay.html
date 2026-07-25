@@ -728,7 +728,8 @@ let pollingTimer = null;
 let pollingInFlight = false;
 let lastPollTime = 0;
 let relaySocket = null;
-let lastCommandId = null;
+let lastCommandKey = null;
+let lastCommandTime = 0;
 
 
 function executeCommandOnce(command, source){
@@ -744,15 +745,23 @@ function executeCommandOnce(command, source){
         + source
     );
 
-    const commandId = [
+    const commandKey = [
         command.action ?? "",
         command.mode ?? "",
-        command.intensity ?? "",
-        command.received ?? ""
-    ].join("|");
+        command.intensity ?? ""
+    ].join("-");
 
+    log(
+        "[DEDUP CHECK] key="
+        + commandKey
+    );
 
-    if(commandId === lastCommandId){
+    const now = Date.now();
+
+    if(
+        commandKey === lastCommandKey &&
+        now - lastCommandTime < 3000
+    ){
 
         log("[DEDUP] duplicate command ignored");
 
@@ -761,7 +770,8 @@ function executeCommandOnce(command, source){
     }
 
 
-    lastCommandId = commandId;
+    lastCommandKey = commandKey;
+    lastCommandTime = now;
 
     handleCommand(command);
 
